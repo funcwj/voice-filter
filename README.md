@@ -12,7 +12,7 @@ A Pytorch implementation of Google's [VoiceFilter](https://arxiv.org/abs/1810.04
 2. Speaker embedding (I used xvector from [here](http://kaldi-asr.org/models/m7))
 3. Data prepare
 
-    Prepare data as {mix,ref,emb}.scp and the format of scp file follows Kaldi's recipe, egs `<key> <path>` pair in each line.
+    Prepare data as `{mix,ref,emb}.scp` and the format of scp file follows Kaldi's recipe, egs `<key> <path>` pair in each line.
 4. Confugure `nnet/conf.py` and train the model. See `train.sh` for details.
 
 

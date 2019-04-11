@@ -235,6 +235,8 @@ class Trainer(object):
             dev_loader,
             num_epoches=50,
             num_batch_per_epoch=4000):
+        # make dilated conv faster
+        th.backends.cudnn.benchmark = True
         # avoid alloc memory from gpu0
         th.cuda.set_device(self.gpuid[0])
         stats = dict()
