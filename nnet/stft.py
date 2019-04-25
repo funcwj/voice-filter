@@ -47,11 +47,10 @@ class STFTBase(nn.Module):
                  window="sqrt_hann",
                  round_pow_of_two=True):
         super(STFTBase, self).__init__()
-        K = init_kernel(
-            frame_len,
-            frame_hop,
-            round_pow_of_two=round_pow_of_two,
-            window=window)
+        K = init_kernel(frame_len,
+                        frame_hop,
+                        round_pow_of_two=round_pow_of_two,
+                        window=window)
         self.K = nn.Parameter(K, requires_grad=False)
         self.stride = frame_hop
         self.window = window

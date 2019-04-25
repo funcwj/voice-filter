@@ -51,18 +51,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Command to simulate data for VoiceFilter training",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument(
-        "wav_scp",
-        type=str,
-        help="Rspecifier of wave files for Librispeech dataset")
-    parser.add_argument(
-        "csv",
-        type=str,
-        help="CSV files obtained from https://github.com/google/speaker-id")
-    parser.add_argument(
-        "--dump-dir",
-        type=str,
-        default="voice_data",
-        help="Directory of output data triplet")
+    parser.add_argument("wav_scp",
+                        type=str,
+                        help="Rspecifier of wave files for "
+                        "Librispeech dataset")
+    parser.add_argument("csv",
+                        type=str,
+                        help="CSV files obtained from "
+                        "https://github.com/google/speaker-id")
+    parser.add_argument("--dump-dir",
+                        type=str,
+                        default="voice_data",
+                        help="Directory of output data triplet")
     args = parser.parse_args()
     run(args)

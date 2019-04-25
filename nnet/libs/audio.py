@@ -83,8 +83,9 @@ class Reader(object):
     """
 
     def __init__(self, scp_path, value_processor=lambda x: x):
-        self.index_dict = _parse_script(
-            scp_path, value_processor=value_processor, num_tokens=2)
+        self.index_dict = _parse_script(scp_path,
+                                        value_processor=value_processor,
+                                        num_tokens=2)
         self.index_keys = list(self.index_dict.keys())
 
     def _load(self, key):
@@ -136,8 +137,9 @@ class WaveReader(Reader):
 
     def _load(self, key):
         # return C x N or N
-        sr, samps = read_wav(
-            self.index_dict[key], normalize=self.normalize, return_rate=True)
+        sr, samps = read_wav(self.index_dict[key],
+                             normalize=self.normalize,
+                             return_rate=True)
         # if given samp_rate, check it
         if self.sr is not None and sr != self.sr:
             raise RuntimeError("SampleRate mismatch: {:d} vs {:d}".format(

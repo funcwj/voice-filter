@@ -39,15 +39,21 @@ def get_logger(
     """
     Get logger instance
     """
+
+    def get_handler(handler):
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter(fmt=format_str, datefmt=date_format)
+        handler.setFormatter(formatter)
+        return handler
+
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
-    # file or console
-    handler = logging.StreamHandler() if not file else logging.FileHandler(
-        name)
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter(fmt=format_str, datefmt=date_format)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    if file:
+        # both stdout & file
+        logger.addHandler(get_handler(logging.FileHandler(name)))
+        # logger.addHandler(logging.StreamHandler())
+    else:
+        logger.addHandler(logging.StreamHandler())
     return logger
 
 
@@ -77,24 +83,25 @@ class ProgressReporter(object):
         self.reset()
 
     def reset(self):
-        self.loss = []
+        self.stats = defaultdict(list)
         self.timer = SimpleTimer()
 
-    def add(self, loss):
-        self.loss.append(loss)
-        N = len(self.loss)
+    def add(self, key, value):
+        self.stats[key].append(value)
+        N = len(self.stats[key])
         if not N % self.period:
-            avg = sum(self.loss[-self.period:]) / self.period
-            self.logger.info("Processed {:d} batches "
-                             "(loss = {:+.2f})...".format(N, avg))
+            avg = sum(self.stats[key][-self.period:]) / self.period
+            self.logger.info("Processed {:.2e} batches "
+                             "({} = {:+.2f})...".format(N, key, avg))
 
     def report(self, details=False):
-        N = len(self.loss)
+        N = len(self.stats["loss"])
         if details:
-            sstr = ",".join(map(lambda f: "{:.2f}".format(f), self.loss))
+            sstr = ",".join(
+                map(lambda f: "{:.2f}".format(f), self.stats["loss"]))
             self.logger.info("Loss on {:d} batches: {}".format(N, sstr))
         return {
-            "loss": sum(self.loss) / N,
+            "loss": sum(self.stats["loss"]) / N,
             "batches": N,
             "cost": self.timer.elapsed()
         }
@@ -111,6 +118,7 @@ class Trainer(object):
                  min_lr=0,
                  patience=0,
                  factor=0.5,
+                 logger=None,
                  logging_period=100,
                  resume=None,
                  no_impr=6):
@@ -123,7 +131,7 @@ class Trainer(object):
         if checkpoint:
             os.makedirs(checkpoint, exist_ok=True)
         self.checkpoint = checkpoint
-        self.logger = get_logger(
+        self.logger = logger if logger else get_logger(
             os.path.join(checkpoint, "trainer.log"), file=True)
 
         self.gradient_clip = gradient_clip
@@ -147,13 +155,12 @@ class Trainer(object):
         else:
             self.nnet = nnet.to(self.device)
             self.optimizer = self.create_optimizer(optimizer, optimizer_kwargs)
-        self.scheduler = ReduceLROnPlateau(
-            self.optimizer,
-            mode="min",
-            factor=factor,
-            patience=patience,
-            min_lr=min_lr,
-            verbose=True)
+        self.scheduler = ReduceLROnPlateau(self.optimizer,
+                                           mode="min",
+                                           factor=factor,
+                                           patience=patience,
+                                           min_lr=min_lr,
+                                           verbose=True)
         self.num_params = sum(
             [param.nelement() for param in nnet.parameters()]) / 10.0**6
 
@@ -212,10 +219,12 @@ class Trainer(object):
             loss = self.compute_loss(egs)
             loss.backward()
             if self.gradient_clip:
-                clip_grad_norm_(self.nnet.parameters(), self.gradient_clip)
+                norm = clip_grad_norm_(self.nnet.parameters(),
+                                       self.gradient_clip)
+                reporter.add("norm", norm)
             self.optimizer.step()
 
-            reporter.add(loss.item())
+            reporter.add("loss", loss.item())
         return reporter.report()
 
     def eval(self, data_loader):
@@ -227,19 +236,19 @@ class Trainer(object):
             for egs in data_loader:
                 egs = load_obj(egs, self.device)
                 loss = self.compute_loss(egs)
-                reporter.add(loss.item())
+                reporter.add("loss", loss.item())
         return reporter.report(details=True)
-
+            
     def run(self,
             train_loader,
             dev_loader,
-            num_epoches=50,
-            num_batch_per_epoch=4000):
+            num_epoches=100,
+            eval_interval=4000):
+        stats = dict()
         # make dilated conv faster
         th.backends.cudnn.benchmark = True
         # avoid alloc memory from gpu0
         th.cuda.set_device(self.gpuid[0])
-        stats = dict()
         # check if save is OK
         self.save_checkpoint(best=False)
         cv = self.eval(dev_loader)
@@ -249,8 +258,8 @@ class Trainer(object):
         no_impr = 0
         stop = False
         trained_batches = 0
-        train_reporter = ProgressReporter(
-            self.logger, period=self.logging_period)
+        train_reporter = ProgressReporter(self.logger,
+                                          period=self.logging_period)
         # make sure not inf
         self.scheduler.best = best_loss
         # set train mode
@@ -258,17 +267,19 @@ class Trainer(object):
         while True:
             # trained on several batches
             for egs in train_loader:
-                trained_batches = (trained_batches + 1) % num_batch_per_epoch
+                trained_batches = (trained_batches + 1) % eval_interval
                 # update per-batch
                 egs = load_obj(egs, self.device)
                 self.optimizer.zero_grad()
                 loss = self.compute_loss(egs)
                 loss.backward()
                 if self.gradient_clip:
-                    clip_grad_norm_(self.nnet.parameters(), self.gradient_clip)
+                    norm = clip_grad_norm_(self.nnet.parameters(),
+                                           self.gradient_clip)
+                    train_reporter.add("norm", norm)
                 self.optimizer.step()
                 # record loss
-                train_reporter.add(loss.item())
+                train_reporter.add("loss", loss.item())
                 # if trained on batches done, start evaluation
                 if trained_batches == 0:
                     self.cur_epoch += 1
@@ -341,17 +352,16 @@ class SiSnrTrainer(Trainer):
                     x.shape, s.shape))
         x_zm = x - th.mean(x, dim=-1, keepdim=True)
         s_zm = s - th.mean(s, dim=-1, keepdim=True)
-        t = th.sum(
-            x_zm * s_zm, dim=-1,
-            keepdim=True) * s_zm / (l2norm(s_zm, keepdim=True)**2 + eps)
+        t = th.sum(x_zm * s_zm, dim=-1,
+                   keepdim=True) * s_zm / (l2norm(s_zm, keepdim=True)**2 + eps)
         return 20 * th.log10(eps + l2norm(t) / (l2norm(x_zm - t) + eps))
 
     def compute_loss(self, egs):
         # flatten for parallel module
         self.nnet.flatten_parameters()
         # N x S
-        est = th.nn.parallel.data_parallel(
-            self.nnet, (egs["mix"], egs["emb"]), device_ids=self.gpuid)
+        est = th.nn.parallel.data_parallel(self.nnet, (egs["mix"], egs["emb"]),
+                                           device_ids=self.gpuid)
         # N
         snr = self.sisnr(est, egs["ref"])
         return -th.sum(snr) / est.size(0)

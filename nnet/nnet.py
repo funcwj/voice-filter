@@ -23,14 +23,14 @@ class Conv2dBlock(nn.Module):
                  kernel_size=(5, 5),
                  dilation=(1, 1)):
         super(Conv2dBlock, self).__init__()
-        self.conv = nn.Conv2d(
-            in_channels,
-            out_channels,
-            kernel_size,
-            stride=1,
-            dilation=dilation,
-            padding=tuple(
-                d * (k - 1) // 2 for k, d in zip(kernel_size, dilation)))
+        self.conv = nn.Conv2d(in_channels,
+                              out_channels,
+                              kernel_size,
+                              stride=1,
+                              dilation=dilation,
+                              padding=tuple(
+                                  d * (k - 1) // 2
+                                  for k, d in zip(kernel_size, dilation)))
         self.bn = nn.BatchNorm2d(out_channels)
 
     def forward(self, x):
@@ -69,10 +69,12 @@ class VoiceFilter(nn.Module):
             math.log2(frame_len)) if round_pow_of_two else frame_len
         num_bins = N // 2 + 1
 
-        self.stft = STFT(
-            frame_len, frame_hop, round_pow_of_two=round_pow_of_two)
-        self.istft = iSTFT(
-            frame_len, frame_hop, round_pow_of_two=round_pow_of_two)
+        self.stft = STFT(frame_len,
+                         frame_hop,
+                         round_pow_of_two=round_pow_of_two)
+        self.istft = iSTFT(frame_len,
+                           frame_hop,
+                           round_pow_of_two=round_pow_of_two)
         self.cnn_f = Conv2dBlock(1, 64, kernel_size=(7, 1))
         self.cnn_t = Conv2dBlock(64, 64, kernel_size=(1, 7))
         blocks = []
@@ -81,11 +83,10 @@ class VoiceFilter(nn.Module):
                 Conv2dBlock(64, 64, kernel_size=(5, 5), dilation=(1, 2**d)))
         self.cnn_tf = nn.Sequential(*blocks)
         self.proj = Conv2dBlock(64, 8, kernel_size=(1, 1))
-        self.lstm = nn.LSTM(
-            8 * num_bins + embedding_dim,
-            400,
-            batch_first=True,
-            bidirectional=bidirectional)
+        self.lstm = nn.LSTM(8 * num_bins + embedding_dim,
+                            400,
+                            batch_first=True,
+                            bidirectional=bidirectional)
         self.mask = nn.Sequential(
             nn.Linear(800 if bidirectional else 400, 600), nn.ReLU(),
             nn.Linear(600, num_bins))

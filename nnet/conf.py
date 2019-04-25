@@ -8,7 +8,7 @@ nnet_conf = {
     "frame_len": frame_len,
     "frame_hop": frame_hop,
     "round_pow_of_two": True,
-    "embedding_dim": 256,
+    "embedding_dim": 512,
     "non_linear": "relu"
 }
 

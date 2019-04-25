@@ -16,12 +16,11 @@ def make_dataloader(train=True,
                     batch_size=16,
                     cache_size=32):
     perutt_loader = PeruttLoader(shuffle=train, **data_kwargs)
-    return DataLoader(
-        perutt_loader,
-        train=train,
-        chunk_size=chunk_size,
-        batch_size=batch_size,
-        cache_size=cache_size)
+    return DataLoader(perutt_loader,
+                      train=train,
+                      chunk_size=chunk_size,
+                      batch_size=batch_size,
+                      cache_size=cache_size)
 
 
 class NumpyReader(Reader):
@@ -54,8 +53,8 @@ class PeruttLoader(object):
         self.mix = WaveReader(mix_scp, sr=sr)
         self.ref = WaveReader(ref_scp, sr=sr)
         self.emb = NumpyReader(
-            emb_scp) if embed_format == "numpy" else ScriptReader(
-                emb_scp, matrix=False)
+            emb_scp) if embed_format == "numpy" else ScriptReader(emb_scp,
+                                                                  matrix=False)
         self.shuffle = shuffle
 
     def __iter__(self):
@@ -136,8 +135,9 @@ class DataLoader(object):
         self.cache_size = cache_size * batch_size
         self.batch_size = batch_size
         self.train = train
-        self.splitter = ChunkSplitter(
-            chunk_size, train=train, hop=chunk_size // 2)
+        self.splitter = ChunkSplitter(chunk_size,
+                                      train=train,
+                                      hop=chunk_size // 2)
 
     def _fetch_batch(self):
         while True:
