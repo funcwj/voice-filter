@@ -2,6 +2,8 @@
 
 A Pytorch implementation of Google's [VoiceFilter](https://arxiv.org/abs/1810.04826) System
 
+![](img/voice-filter.png)
+
 ### Usage
 
 1. Data simulation
@@ -18,6 +20,4 @@ A Pytorch implementation of Google's [VoiceFilter](https://arxiv.org/abs/1810.04
 
 ### Note
 
-1. I used Si-SNR loss instead of MSE of spectrogram, which could archive better results.
-2. The training progress is slow, even I used 8xP40 GPUs.
-3. ...
+1. I used Si-SNR loss instead of MSE of spectrogram, which could achieve better perfermance.

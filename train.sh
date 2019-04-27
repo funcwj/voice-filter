@@ -7,7 +7,7 @@ epoches=100
 batch_size=32
 cache_size=8
 chunk_size=64256
-batch_per_epoch=1000
+eval_interval=3000
 
 echo "$0 $@"
 
@@ -23,5 +23,5 @@ gpu_id=$2
   --cache-size $cache_size \
   --chunk-size $chunk_size \
   --epoches $epoches \
-  --batch-per-epoch $batch_per_epoch \
+  --eval-interval $eval_interval \
   > $exp_id.train.log 2>&1
