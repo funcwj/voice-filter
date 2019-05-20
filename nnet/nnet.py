@@ -52,8 +52,11 @@ class VoiceFilter(nn.Module):
                  frame_hop,
                  round_pow_of_two=True,
                  embedding_dim=512,
-                 add_bn=False,
-                 add_log=False,
+                 log_mag=False,
+                 mvn_mag=False,
+                 lstm_dim=400,
+                 linear_dim=600,
+                 l2_norm=True,
                  bidirectional=False,
                  non_linear="relu"):
         super(VoiceFilter, self).__init__()
@@ -84,16 +87,17 @@ class VoiceFilter(nn.Module):
         self.cnn_tf = nn.Sequential(*blocks)
         self.proj = Conv2dBlock(64, 8, kernel_size=(1, 1))
         self.lstm = nn.LSTM(8 * num_bins + embedding_dim,
-                            400,
+                            lstm_dim,
                             batch_first=True,
                             bidirectional=bidirectional)
         self.mask = nn.Sequential(
-            nn.Linear(800 if bidirectional else 400, 600), nn.ReLU(),
-            nn.Linear(600, num_bins))
+            nn.Linear(lstm_dim * 2 if bidirectional else lstm_dim, linear_dim),
+            nn.ReLU(), nn.Linear(linear_dim, num_bins))
         self.non_linear = supported_nonlinear[non_linear]
         self.embedding_dim = embedding_dim
-        self.add_log = add_log
-        self.bn = nn.BatchNorm1d(num_bins) if add_bn else None
+        self.l2_norm = l2_norm
+        self.log_mag = log_mag
+        self.bn = nn.BatchNorm1d(num_bins) if mvn_mag else None
 
     def flatten_parameters(self):
         self.lstm.flatten_parameters()
@@ -116,13 +120,16 @@ class VoiceFilter(nn.Module):
         if x.dim() == 1:
             x = th.unsqueeze(x, 0)
             e = th.unsqueeze(e, 0)
+        if self.l2_norm:
+            e = e / th.norm(e, 2, dim=1, keepdim=True)
+
         # N x S => N x F x T
         mag, ang = self.stft(x)
 
         # clip
         y = th.clamp(mag, min=EPSILON)
         # apply log
-        if self.add_log:
+        if self.log_mag:
             y = th.log(y)
         # apply bn
         if self.bn:

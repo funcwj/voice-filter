@@ -7,6 +7,11 @@ frame_hop = 256
 nnet_conf = {
     "frame_len": frame_len,
     "frame_hop": frame_hop,
+    "log_mag": False,
+    "mvn_mag": False,
+    "lstm_dim": 400,
+    "linear_dim": 600,
+    "l2_norm": True,
     "round_pow_of_two": True,
     "embedding_dim": 512,
     "non_linear": "relu"
