@@ -2,3 +2,4 @@ scipy==1.2.1
 tqdm==4.31.1
 torch==1.0.1.post2
 numpy==1.16.2
+kaldi-python-io==1.0.0
