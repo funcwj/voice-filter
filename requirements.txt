@@ -1,4 +1,4 @@
-scipy==1.2.1
+scipy==1.10.0
 tqdm==4.31.1
 torch==1.0.1.post2
 numpy==1.16.2
